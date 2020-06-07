@@ -75,28 +75,48 @@
             // Convert it to RGB format.
             cv::cvtColor(originalMat, originalMat, cv::COLOR_GRAY2RGB);
             break;
-        case CV_8UC4:
+        case CV_8UC4: {
             // The cv::Mat is in RGBA format.
             // Convert it to RGB format.
             cv::cvtColor(originalMat, originalMat, cv::COLOR_RGBA2RGB);
 #ifdef WITH_OPENCV_CONTRIB
             // Adjust the white balance.
-            cv::xphoto::autowbGrayworld(originalMat, originalMat);
+            cv::Ptr<cv::xphoto::GrayworldWB> whiteBalancer = cv::xphoto::createGrayworldWB();
+            whiteBalancer->balanceWhite(originalMat, originalMat);
 #endif
             break;
-        case CV_8UC3:
+        }
+        case CV_8UC3: {
             // The cv::Mat is in RGB format.
 #ifdef WITH_OPENCV_CONTRIB
             // Adjust the white balance.
-            cv::xphoto::autowbGrayworld(originalMat, originalMat);
+            cv::Ptr<cv::xphoto::GrayworldWB> whiteBalancer = cv::xphoto::createGrayworldWB();
+            whiteBalancer->balanceWhite(originalMat, originalMat);
 #endif
             break;
+        }
         default:
             break;
     }
     
     // Call an update method every 2 seconds.
     self.timer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(updateImage) userInfo:nil repeats:YES];
+    
+    // Get a notification center and queue.
+    // These will provide notifications about application lifecycle events.
+    NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
+    NSOperationQueue *queue = [NSOperationQueue mainQueue];
+    
+    // When the application enters the background, stop the update timer.
+    [notificationCenter addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil queue:queue usingBlock:^(NSNotification *note) {
+        [self.timer invalidate];
+        self.timer = nil;
+    }];
+    
+    // When the application re-enters the foreground, restart the update timer.
+    [notificationCenter addObserverForName:UIApplicationWillEnterForegroundNotification object:nil queue:queue usingBlock:^(NSNotification *note) {
+        self.timer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(updateImage) userInfo:nil repeats:YES];
+    }];
 }
 
 - (void)updateImage {
